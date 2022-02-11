@@ -1,0 +1,3 @@
+./imgRetrieval /Volumes/GoogleDrive-111803401957350994193/My\ Drive/NEU\ CS/cs5330/Assignment/A2_image_retrieval/data/pic.1016.jpg /Volumes/GoogleDrive-111803401957350994193/My\ Drive/NEU\ CS/cs5330/Assignment/A2_resources/olympus 0
+
+./imgRetrieval /Volumes/GoogleDrive-111803401957350994193/My\ Drive/NEU\ CS/cs5330/Assignment/A2_image_retrieval/data/pic.1016.jpg /Volumes/GoogleDrive-111803401957350994193/My\ Drive/NEU\ CS/cs5330/Assignment/A2_resources/olympus_small 0
