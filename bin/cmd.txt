@@ -1,3 +1,12 @@
+cout << "image dists size" << imgDists.size() << "\n";
+cout << "image dists 0 " << imgDists[0].second << "\n";
+cout << "image dists 1 " << imgDists[1].second << "\n";
+
+cout << "sorted dists size" << imgDists.size() << "\n";
+cout << "sorted dists 0 " << imgDists[0].second << "\n";
+cout << "sorted dists 1 " << imgDists[1].second << "\n";
+cout << "sorted dists 2 " << imgDists[2].second << "\n";
+
 ./imgRetrieval /Volumes/GoogleDrive-111803401957350994193/My\ Drive/NEU\ CS/cs5330/Assignment/A2_image_retrieval/data/pic.1016.jpg /Volumes/GoogleDrive-111803401957350994193/My\ Drive/NEU\ CS/cs5330/Assignment/A2_resources/olympus 0
 
 ./imgRetrieval /Volumes/GoogleDrive-111803401957350994193/My\ Drive/NEU\ CS/cs5330/Assignment/A2_image_retrieval/data/pic.1016.jpg /Volumes/GoogleDrive-111803401957350994193/My\ Drive/NEU\ CS/cs5330/Assignment/A2_resources/olympus_small 0

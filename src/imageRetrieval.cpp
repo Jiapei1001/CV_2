@@ -15,10 +15,6 @@ using namespace cv;
 using namespace std;
 using namespace image;
 
-enum mode {
-    BASELINE = 1,
-} MODE;
-
 /*
   Given a directory on the command line, scans through the directory for image files.
 
@@ -29,11 +25,16 @@ int main(int argc, char *argv[]) {
     cv::Mat source;
     vector<cv::Mat> images;
     int feature;
+    int num2Show = 6;
 
     // check for sufficient arguments
     if (argc < 4) {
-        cout << "usage: %s <source> <directory path> <mode>\n";
+        cout << "usage: %s <source> <directory path> <mode> & optional <# images to show>\n";
         exit(-1);
+    }
+    // # of images to show
+    if (argc > 4) {
+        num2Show = atoi(argv[4]);
     }
 
     // get the source image
@@ -47,7 +48,7 @@ int main(int argc, char *argv[]) {
     // get the directory path & load images
     strcpy(dirname, argv[2]);
     image::loadImages(images, dirname);
-    cout << "image numbers" << images.size() << "\n";
+    cout << "image numbers: " << images.size() << "\n";
 
     // choose feature mode
     feature = atoi(argv[3]);
@@ -55,18 +56,27 @@ int main(int argc, char *argv[]) {
     case 0:
         MODE = BASELINE;
         break;
-    default:
-        MODE = BASELINE;
-        break;
     }
 
-    // // process mode
-    // switch (MODE) {
-    // case BASELINE:
-    //     /* code */
-    //     break;
-    // }
+    // process images
+    vector<pair<cv::Mat, float>> imgDists;
+    imgDists = image::calculateDistances(source, images, MODE);
 
+    // sort images
+    vector<cv::Mat> res;
+    res = image::sortByDistances(imgDists);
+
+    // truncate results
+    if (res.size() <= num2Show)
+        num2Show = res.size();
+    res.resize(num2Show);
+    cout << "show sorted res " << res.size() << "\n";
+
+    // display results
+    image::displayResults(res);
+
+    // NOTE: must add waitKey, or the program will terminate, without showing the result images
+    waitKey(0);
     printf("Terminating\n");
 
     return (0);
