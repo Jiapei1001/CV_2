@@ -18,6 +18,6 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 file(GLOB SOURCES "src/*.cpp")
 
-add_executable(imgRetrieval src/imageRetrieval.cpp src/image.cpp)
+add_executable(imgRetrieval src/imageRetrieval.cpp src/image.cpp src/process.cpp)
 
 target_link_libraries(imgRetrieval ${OpenCV_LIBS})

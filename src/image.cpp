@@ -11,57 +11,7 @@ using namespace cv;
 using namespace image;
 using namespace std;
 
-// load images from a directory
-void image::loadImages(vector<Mat> &images, const char *dirname) {
-    char buffer[256];
-    FILE *fp;
-    DIR *dirp;
-    struct dirent *dp;
-
-    printf("Processing directory %s\n", dirname);
-
-    // open the directory
-    dirp = opendir(dirname);
-    if (dirp == NULL) {
-        printf("Cannot open directory %s\n", dirname);
-        exit(-1);
-    }
-
-    // loop over all the files in the image file listing
-    while ((dp = readdir(dirp)) != NULL) {
-        // check if the file is an image
-        if (strstr(dp->d_name, ".jpg") ||
-            strstr(dp->d_name, ".png") ||
-            strstr(dp->d_name, ".ppm") ||
-            strstr(dp->d_name, ".tif")) {
-            printf("processing image file: %s\n", dp->d_name);
-
-            // build the overall filename
-            strcpy(buffer, dirname);
-            strcat(buffer, "/");
-            strcat(buffer, dp->d_name);
-
-            // image path
-            // printf("full path name: %s\n", buffer);
-
-            cv::Mat newImage;
-            newImage = cv::imread(buffer);
-
-            // check if new Mat is built
-            if (newImage.data == NULL) {
-                cout << "This new image" << buffer << "cannot be loaded into cv::Mat\n";
-                exit(-1);
-            }
-
-            // image's data
-            // cout << "M = " << endl
-            //      << " " << newImage.rowRange(0, 6) << endl
-            //      << endl;
-
-            images.push_back(newImage);
-        }
-    }
-}
+const int Hsize = 16;
 
 // main entry - calculate distances from source to targets using input feature mode
 vector<pair<cv::Mat, float>> image::calculateDistances(cv::Mat &src, vector<cv::Mat> &images, mode MODE) {
@@ -72,6 +22,9 @@ vector<pair<cv::Mat, float>> image::calculateDistances(cv::Mat &src, vector<cv::
         switch (MODE) {
         case BASELINE:
             dist = image::baselineMatch(src, images[i]);
+            break;
+        case HISTOGRAM:
+            dist = image::histogramMatch(src, images[i]);
             break;
         }
         imgDists.push_back(make_pair(images[i], dist));
@@ -97,22 +50,6 @@ vector<cv::Mat> image::sortByDistances(vector<pair<cv::Mat, float>> &imgDists) {
     return sorted;
 }
 
-// display
-void image::displayResults(vector<cv::Mat> &results) {
-    float targetWidth = 600;
-    float scale, targetHeight;
-
-    for (int i = 0; i < results.size(); i++) {
-        scale = targetWidth / results[i].cols;
-        targetHeight = results[i].rows * scale;
-        cv::resize(results[i], results[i], Size(targetWidth, targetHeight));
-
-        string name = "top " + to_string(i);
-        namedWindow(name, WINDOW_AUTOSIZE);
-        cv::imshow(name, results[i]);
-    }
-}
-
 // 9 x 9 grid
 float image::baselineMatch(cv::Mat &src, cv::Mat &target) {
     int sy = src.rows / 2 - 4;
@@ -132,6 +69,255 @@ float image::baselineMatch(cv::Mat &src, cv::Mat &target) {
             dist += (s[2] - t[2]) * (s[2] - t[2]);
         }
     }
+
+    return dist;
+}
+
+// initialize 2D histogram
+float **initialize2dHistogram() {
+    // 2-D int array
+    float **hist_2d = new float *[Hsize];  // allocates an array of int pointers, one per row
+
+    hist_2d[0] = new float[Hsize * Hsize];  // allocates actual data
+
+    // initialize the row pointers
+    for (int i = 1; i < Hsize; i++) {
+        // note here hist_2d[0] is going into the allocated data above
+        hist_2d[i] = &(hist_2d[0][i * Hsize]);
+    }
+
+    // initialize the data to all zeros
+    for (int i = 0; i < Hsize; i++) {
+        for (int j = 0; j < Hsize; j++) {
+            hist_2d[i][j] = 0.0;
+        }
+    }
+    // Alternative initialize option
+    // for (int i = 0; i < Hsize * Hsize; i++) {
+    //     hist_2d[0][i] = 0;
+    // }
+
+    return hist_2d;
+}
+
+// initialize 3D histogram
+float *initialize3dHistogram() {
+    // 3-D int array
+    float *hist_3d = new float[Hsize * Hsize * Hsize];  // allocates an array of int pointers, one per row
+
+    // initialize the data to all zeros
+    for (int i = 0; i < Hsize * Hsize * Hsize; i++) {
+        hist_3d[i] = 0.0;
+    }
+
+    return hist_3d;
+}
+
+// A 3 dimensional histogram match
+float image::histogramMatch(cv::Mat &src, cv::Mat &target) {
+    float dist = 0.0;
+
+    // G, B, R -> 3 dimensional histogram
+    float *hist_3d_src = initialize3dHistogram();
+    float *hist_3d_tar = initialize3dHistogram();
+
+    // int index = (R * Hsize) / 256;
+    for (int y = 0; y < src.rows; y++) {
+        for (int x = 0; x < src.cols; x++) {
+            // g, b, r
+            cv::Vec3b p = src.at<cv::Vec3b>(y, x);
+            int gIdx = (p[0] * Hsize) / 256;
+            int bIdx = (p[1] * Hsize) / 256;
+            int rIdx = (p[2] * Hsize) / 256;
+            hist_3d_src[gIdx * Hsize * Hsize + bIdx * Hsize + rIdx] += 1.0;
+        }
+    }
+    for (int y = 0; y < target.rows; y++) {
+        for (int x = 0; x < target.cols; x++) {
+            // g, b, r
+            cv::Vec3b p = target.at<cv::Vec3b>(y, x);
+            int gIdx = (p[0] * Hsize) / 256;
+            int bIdx = (p[1] * Hsize) / 256;
+            int rIdx = (p[2] * Hsize) / 256;
+            hist_3d_tar[gIdx * Hsize * Hsize + bIdx * Hsize + rIdx] += 1.0;
+        }
+    }
+
+    // get sum of bins
+    float sum_src = 0.0;
+    float sum_tar = 0.0;
+    for (int i = 0; i < Hsize; i++) {
+        for (int j = 0; j < Hsize; j++) {
+            for (int k = 0; k < Hsize; k++) {
+                sum_src += hist_3d_src[i * Hsize * Hsize + j * Hsize + k];
+                sum_tar += hist_3d_tar[i * Hsize * Hsize + j * Hsize + k];
+            }
+        }
+    }
+
+    // normalize
+    for (int i = 0; i < Hsize; i++) {
+        for (int j = 0; j < Hsize; j++) {
+            for (int k = 0; k < Hsize; k++) {
+                hist_3d_src[i * Hsize * Hsize + j * Hsize + k] /= sum_src;
+                hist_3d_tar[i * Hsize * Hsize + j * Hsize + k] /= sum_tar;
+            }
+        }
+    }
+
+    // compare
+    for (int i = 0; i < Hsize; i++) {
+        for (int j = 0; j < Hsize; j++) {
+            for (int k = 0; k < Hsize; k++) {
+                float a = hist_3d_src[i * Hsize * Hsize + j * Hsize + k];
+                float b = hist_3d_tar[i * Hsize * Hsize + j * Hsize + k];
+                dist += (a - b) * (a - b);
+            }
+        }
+    }
+
+    delete hist_3d_src;
+    delete hist_3d_tar;
+
+    return dist;
+}
+
+// Backup - A 2 dimensional histogram match
+float histogramMatch2DGR(cv::Mat &src, cv::Mat &target) {
+    float dist = 0.0;
+
+    // G, B, R -> G & R 2 dimensional histogram
+    float **hist_2d_src = initialize2dHistogram();
+    float **hist_2d_tar = initialize2dHistogram();
+
+    // int index = R * Hsize / 256;
+    for (int y = 0; y < src.rows; y++) {
+        for (int x = 0; x < src.cols; x++) {
+            // g, b, r
+            cv::Vec3b p = src.at<cv::Vec3b>(y, x);
+            int gIdx = p[0] * Hsize / 256;
+            int rIdx = p[2] * Hsize / 256;
+            hist_2d_src[gIdx][rIdx] += 1.0;
+        }
+    }
+    for (int y = 0; y < target.rows; y++) {
+        for (int x = 0; x < target.cols; x++) {
+            // g, b, r
+            cv::Vec3b p = target.at<cv::Vec3b>(y, x);
+            int gIdx = p[0] * Hsize / 256;
+            int rIdx = p[2] * Hsize / 256;
+            hist_2d_tar[gIdx][rIdx] += 1.0;
+        }
+    }
+
+    // for (int i = 0; i < Hsize; i++) {
+    //     for (int j = 0; j < Hsize; j++) {
+    //         printf("%.1f ", hist_2d_src[i][j]);
+    //     }
+    //     printf("\n");
+    // }
+
+    int sum_src = src.rows * src.cols;
+    int sum_tar = target.rows * target.cols;
+
+    // normalize histogram
+    for (int i = 0; i < Hsize; i++) {
+        for (int j = 0; j < Hsize; j++) {
+            hist_2d_src[i][j] /= sum_src;
+            hist_2d_tar[i][j] /= sum_tar;
+        }
+    }
+
+    // calculate difference
+    for (int i = 0; i < Hsize; i++) {
+        for (int j = 0; j < Hsize; j++) {
+            float a = hist_2d_src[i][j];
+            float b = hist_2d_tar[i][j];
+            dist += (a - b) * (a - b);
+        }
+    }
+
+    delete hist_2d_src[0];
+    delete hist_2d_src;
+    delete hist_2d_tar[0];
+    delete hist_2d_tar;
+
+    return dist;
+}
+
+// Backup - A 3 dimensional histogram match, RGB 3 separate channels
+float histogramMatchRGB(cv::Mat &src, cv::Mat &target) {
+    float dist = 0.0;
+
+    float **hist_2d_src = new float *[3];  // allocates an array of int pointers, one per row
+    float **hist_2d_tar = new float *[3];
+
+    hist_2d_src[0] = new float[3 * Hsize];  // allocates actual data
+    hist_2d_tar[0] = new float[3 * Hsize];
+
+    // initialize the row pointers
+    for (int i = 1; i < 3; i++) {
+        // note here hist_2d[0] is going into the allocated data above
+        hist_2d_src[i] = &(hist_2d_src[0][i * Hsize]);
+        hist_2d_tar[i] = &(hist_2d_tar[0][i * Hsize]);
+    }
+
+    // int index = R * Hsize / 256;
+    for (int y = 0; y < src.rows; y++) {
+        for (int x = 0; x < src.cols; x++) {
+            // g, b, r
+            cv::Vec3b p = src.at<cv::Vec3b>(y, x);
+            int gIdx = p[0] * Hsize / 256;
+            int bIdx = p[1] * Hsize / 256;
+            int rIdx = p[2] * Hsize / 256;
+            hist_2d_src[0][gIdx] += 1.0;
+            hist_2d_src[1][bIdx] += 1.0;
+            hist_2d_src[2][rIdx] += 1.0;
+        }
+    }
+    for (int y = 0; y < target.rows; y++) {
+        for (int x = 0; x < target.cols; x++) {
+            // g, b, r
+            cv::Vec3b p = target.at<cv::Vec3b>(y, x);
+            int gIdx = p[0] * Hsize / 256;
+            int bIdx = p[1] * Hsize / 256;
+            int rIdx = p[2] * Hsize / 256;
+            hist_2d_tar[0][gIdx] += 1.0;
+            hist_2d_tar[1][bIdx] += 1.0;
+            hist_2d_tar[2][rIdx] += 1.0;
+        }
+    }
+
+    // test print
+    // for (int i = 0; i < Hsize; i++) {
+    //     for (int j = 0; j < Hsize; j++) {
+    //         printf("%.1f ", hist_2d_src[i][j]);
+    //     }
+    //     printf("\n");
+    // }
+
+    int sum_src = src.rows * src.cols;
+    int sum_tar = target.rows * target.cols;
+
+    // normalize histogram
+    for (int i = 0; i < 3; i++) {
+        for (int j = 0; j < Hsize; j++) {
+            hist_2d_src[i][j] /= sum_src;
+            hist_2d_tar[i][j] /= sum_tar;
+        }
+    }
+
+    // calculate difference
+    for (int i = 0; i < Hsize; i++) {
+        for (int j = 0; j < Hsize; j++) {
+            float a = hist_2d_src[i][j];
+            float b = hist_2d_tar[i][j];
+            dist += (a - b) * (a - b);
+        }
+    }
+
+    // delete hist_2d_src;
+    // delete hist_2d_tar;
 
     return dist;
 }

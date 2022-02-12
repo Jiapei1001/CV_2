@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "image.hpp"
+#include "process.hpp"
 
 using namespace cv;
 using namespace std;
@@ -47,7 +48,7 @@ int main(int argc, char *argv[]) {
 
     // get the directory path & load images
     strcpy(dirname, argv[2]);
-    image::loadImages(images, dirname);
+    process::loadImages(images, dirname);
     cout << "image numbers: " << images.size() << "\n";
 
     // choose feature mode
@@ -55,6 +56,9 @@ int main(int argc, char *argv[]) {
     switch (feature) {
     case 0:
         MODE = BASELINE;
+        break;
+    case 1:
+        MODE = HISTOGRAM;
         break;
     }
 
@@ -73,7 +77,7 @@ int main(int argc, char *argv[]) {
     cout << "show sorted res " << res.size() << "\n";
 
     // display results
-    image::displayResults(res);
+    process::displayResults(res);
 
     // NOTE: must add waitKey, or the program will terminate, without showing the result images
     waitKey(0);
