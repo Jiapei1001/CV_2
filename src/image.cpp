@@ -26,6 +26,9 @@ vector<pair<cv::Mat, float>> image::calculateDistances(cv::Mat &src, vector<cv::
         case HISTOGRAM:
             dist = image::histogramMatch(src, images[i]);
             break;
+        case MULTI_HISTOGRAM:
+            dist = image::multiHistogramMatch(src, images[i]);
+            break;
         }
         imgDists.push_back(make_pair(images[i], dist));
     }
@@ -113,7 +116,7 @@ float *initialize3dHistogram() {
     return hist_3d;
 }
 
-// A 3 dimensional histogram match
+// A 3 dimensional R G B histogram match
 float image::histogramMatch(cv::Mat &src, cv::Mat &target) {
     float dist = 0.0;
 
@@ -182,7 +185,28 @@ float image::histogramMatch(cv::Mat &src, cv::Mat &target) {
     return dist;
 }
 
-// Backup - A 2 dimensional histogram match
+// Match image using multiple parts' histograms - top & bottom
+float image::multiHistogramMatch(cv::Mat &src, cv::Mat &target) {
+    // Rect(x, y, width, height). In OpenCV, the data are organized with the first pixel being in the upper left corner.
+    // top (0, 0, cols, rows / 2)
+    // bottom (0, rows / 2, cols, rows / 2)
+    // left (0, 0, cols / 2, rows)
+    // right (cols/2, 0, cols / 2, rows)
+
+    cv::Mat srcTop(src, Rect(0, 0, src.cols, src.rows / 2));
+    cv::Mat srcBot(src, Rect(0, src.rows / 2, src.cols, src.rows / 2));
+
+    cv::Mat tarTop(target, Rect(0, 0, target.cols, target.rows / 2));
+    cv::Mat tarBot(target, Rect(0, target.rows / 2, target.cols, target.rows / 2));
+
+    float dist1 = image::histogramMatch(srcTop, tarTop);
+    float dist2 = image::histogramMatch(srcBot, tarBot);
+
+    // weight, emphasize the top part
+    return dist1 * 8 + dist2 * 2;
+}
+
+// Backup - A 2 dimensional histogram G & R match
 float histogramMatch2DGR(cv::Mat &src, cv::Mat &target) {
     float dist = 0.0;
 

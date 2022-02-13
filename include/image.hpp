@@ -10,6 +10,7 @@ using namespace std;
 static enum mode {
     BASELINE = 1,
     HISTOGRAM = 2,
+    MULTI_HISTOGRAM = 3,
 } MODE;
 
 namespace image {
@@ -21,6 +22,7 @@ vector<cv::Mat> sortByDistances(vector<pair<cv::Mat, float>> &imgDists);
 // specific mode
 float baselineMatch(cv::Mat &src, cv::Mat &target);
 float histogramMatch(cv::Mat &src, cv::Mat &target);
+float multiHistogramMatch(cv::Mat &src, cv::Mat &target);
 
 }  // namespace image
 
