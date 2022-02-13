@@ -51,7 +51,7 @@ int main(int argc, char *argv[]) {
     process::loadImages(images, dirname);
     cout << "image numbers: " << images.size() << "\n";
 
-    // choose feature mode
+    // assign feature mode by input
     feature = atoi(argv[3]);
     switch (feature) {
     case 0:
@@ -62,6 +62,9 @@ int main(int argc, char *argv[]) {
         break;
     case 2:
         MODE = MULTI_HISTOGRAM;
+        break;
+    case 3:
+        MODE = TEXTURE_COLOR;
         break;
     }
 

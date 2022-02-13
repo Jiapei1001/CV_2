@@ -12,6 +12,8 @@ using namespace image;
 using namespace std;
 
 const int Hsize = 16;
+float range[] = {0, 256};
+const float *HistRange = {range};
 
 // main entry - calculate distances from source to targets using input feature mode
 vector<pair<cv::Mat, float>> image::calculateDistances(cv::Mat &src, vector<cv::Mat> &images, mode MODE) {
@@ -24,10 +26,13 @@ vector<pair<cv::Mat, float>> image::calculateDistances(cv::Mat &src, vector<cv::
             dist = image::baselineMatch(src, images[i]);
             break;
         case HISTOGRAM:
-            dist = image::histogramMatch(src, images[i]);
+            dist = image::compareRGBHist(src, images[i]);
             break;
         case MULTI_HISTOGRAM:
-            dist = image::multiHistogramMatch(src, images[i]);
+            dist = image::compareMultiRGBHist(src, images[i]);
+            break;
+        case TEXTURE_COLOR:
+            dist = image::compareSobelAndColor(src, images[i]);
             break;
         }
         imgDists.push_back(make_pair(images[i], dist));
@@ -117,7 +122,7 @@ float *initialize3dHistogram() {
 }
 
 // A 3 dimensional R G B histogram match
-float image::histogramMatch(cv::Mat &src, cv::Mat &target) {
+float image::compareRGBHist(cv::Mat &src, cv::Mat &target) {
     float dist = 0.0;
 
     // G, B, R -> 3 dimensional histogram
@@ -186,7 +191,7 @@ float image::histogramMatch(cv::Mat &src, cv::Mat &target) {
 }
 
 // Match image using multiple parts' histograms - top & bottom
-float image::multiHistogramMatch(cv::Mat &src, cv::Mat &target) {
+float image::compareMultiRGBHist(cv::Mat &src, cv::Mat &target) {
     // Rect(x, y, width, height). In OpenCV, the data are organized with the first pixel being in the upper left corner.
     // top (0, 0, cols, rows / 2)
     // bottom (0, rows / 2, cols, rows / 2)
@@ -199,11 +204,84 @@ float image::multiHistogramMatch(cv::Mat &src, cv::Mat &target) {
     cv::Mat tarTop(target, Rect(0, 0, target.cols, target.rows / 2));
     cv::Mat tarBot(target, Rect(0, target.rows / 2, target.cols, target.rows / 2));
 
-    float dist1 = image::histogramMatch(srcTop, tarTop);
-    float dist2 = image::histogramMatch(srcBot, tarBot);
+    float dist1 = image::compareRGBHist(srcTop, tarTop);
+    float dist2 = image::compareRGBHist(srcBot, tarBot);
 
     // weight, emphasize the top part
     return dist1 * 8 + dist2 * 2;
+}
+
+// Get the average difference between sobelX and sobelY differences
+float compareSobelHist(cv::Mat &src, cv::Mat &target) {
+    // get sobelX, sobelY
+    // compare sobelX between src and target
+    // compare sobelY between src and target
+    // average of the 2 results
+
+    // Step One: get sobelX & sobelY - refer to OpenCV doc
+
+    // Remove noise by blurring with a Gaussian filter ( kernel size = 3 )
+    cv::Mat src_copy, tar_copy;
+    cv::GaussianBlur(src, src_copy, Size(3, 3), 0, 0, BORDER_DEFAULT);
+    cv::GaussianBlur(target, tar_copy, Size(3, 3), 0, 0, BORDER_DEFAULT);
+
+    // Convert the image to grayscale
+    cv::Mat src_gray, tar_gray;
+    cv::cvtColor(src_copy, src_gray, COLOR_BGR2GRAY);
+    cv::cvtColor(tar_copy, tar_gray, COLOR_BGR2GRAY);
+
+    // Sobel
+    cv::Mat src_grad_x, src_grad_y, tar_grad_x, tar_grad_y;
+    int ddepth = CV_16S;
+    cv::Sobel(src_gray, src_grad_x, ddepth, 1, 0, 3);
+    cv::Sobel(src_gray, src_grad_y, ddepth, 0, 1, 3);
+    cv::Sobel(tar_gray, tar_grad_x, ddepth, 1, 0, 3);
+    cv::Sobel(tar_gray, tar_grad_y, ddepth, 0, 1, 3);
+
+    // Converting back to CV_8U
+    cv::Mat src_x_abs, src_y_abs, tar_x_abs, tar_y_abs;
+    cv::convertScaleAbs(src_grad_x, src_x_abs);
+    cv::convertScaleAbs(src_grad_y, src_y_abs);
+    cv::convertScaleAbs(tar_grad_x, tar_x_abs);
+    cv::convertScaleAbs(tar_grad_y, tar_y_abs);
+
+    // Step 2: get Sobel histogram
+    // as gray, only one channel, cannot use the RGB histogram comparison
+    cv::Mat src_hist_x, src_hist_y, tar_hist_x, tar_hist_y;
+    // source array; 1 as number of source array; 0 as channel dimension, here gray as single channel;
+    // Mat() a mask onto source array, here not used;
+    // result mat; 1 as histogram dimension, here as 1;
+    // Hsize as # of bins; HistRange as {0, 256}
+    cv::calcHist(&src_x_abs, 1, 0, Mat(), src_hist_x, 1, &Hsize, &HistRange);
+    cv::calcHist(&src_y_abs, 1, 0, Mat(), src_hist_y, 1, &Hsize, &HistRange);
+    cv::calcHist(&tar_x_abs, 1, 0, Mat(), tar_hist_x, 1, &Hsize, &HistRange);
+    cv::calcHist(&tar_y_abs, 1, 0, Mat(), tar_hist_y, 1, &Hsize, &HistRange);
+
+    // normalize, one pixel contribute to one, sum as total # of pixels
+    float src_sum = (float)src_hist_x.size().width * src_hist_x.size().height;
+    float tar_sum = (float)tar_hist_x.size().width * tar_hist_x.size().height;
+    src_hist_x /= src_sum;
+    src_hist_y /= src_sum;
+    tar_hist_x /= tar_sum;
+    tar_hist_y /= tar_sum;
+
+    // Step 3: compare Sobel histogram
+    int method = HISTCMP_CORREL;
+    float x_dist = cv::compareHist(src_hist_x, tar_hist_x, method);
+    float y_dist = cv::compareHist(src_hist_y, tar_hist_y, method);
+
+    // Step 4: average
+    float dist = (x_dist + y_dist) / 2.0;
+
+    return dist;
+}
+
+// Compare Sobel Texture Histogram + Color Histogram
+float image::compareSobelAndColor(cv::Mat &src, cv::Mat &target) {
+    float colorDist = compareRGBHist(src, target);
+    float textureDist = compareSobelHist(src, target);
+
+    return colorDist + textureDist * 4;
 }
 
 // Backup - A 2 dimensional histogram G & R match

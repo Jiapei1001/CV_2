@@ -11,6 +11,7 @@ static enum mode {
     BASELINE = 1,
     HISTOGRAM = 2,
     MULTI_HISTOGRAM = 3,
+    TEXTURE_COLOR = 4,
 } MODE;
 
 namespace image {
@@ -21,8 +22,9 @@ vector<cv::Mat> sortByDistances(vector<pair<cv::Mat, float>> &imgDists);
 
 // specific mode
 float baselineMatch(cv::Mat &src, cv::Mat &target);
-float histogramMatch(cv::Mat &src, cv::Mat &target);
-float multiHistogramMatch(cv::Mat &src, cv::Mat &target);
+float compareRGBHist(cv::Mat &src, cv::Mat &target);
+float compareMultiRGBHist(cv::Mat &src, cv::Mat &target);
+float compareSobelAndColor(cv::Mat &src, cv::Mat &target);
 
 }  // namespace image
 
