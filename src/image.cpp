@@ -212,7 +212,7 @@ float image::compareMultiRGBHist(cv::Mat &src, cv::Mat &target) {
 }
 
 // Get the average difference between sobelX and sobelY differences
-float compareSobelHist(cv::Mat &src, cv::Mat &target) {
+float image::compareSobelHist(cv::Mat &src, cv::Mat &target) {
     // get sobelX, sobelY
     // compare sobelX between src and target
     // compare sobelY between src and target

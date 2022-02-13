@@ -24,6 +24,7 @@ vector<cv::Mat> sortByDistances(vector<pair<cv::Mat, float>> &imgDists);
 float baselineMatch(cv::Mat &src, cv::Mat &target);
 float compareRGBHist(cv::Mat &src, cv::Mat &target);
 float compareMultiRGBHist(cv::Mat &src, cv::Mat &target);
+float compareSobelHist(cv::Mat &src, cv::Mat &target);
 float compareSobelAndColor(cv::Mat &src, cv::Mat &target);
 
 }  // namespace image
