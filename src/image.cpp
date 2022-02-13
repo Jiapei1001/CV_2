@@ -281,7 +281,8 @@ float image::compareSobelAndColor(cv::Mat &src, cv::Mat &target) {
     float colorDist = compareRGBHist(src, target);
     float textureDist = compareSobelHist(src, target);
 
-    return colorDist + textureDist * 4;
+    // more weight on texture
+    return colorDist + textureDist * 2;
 }
 
 // Backup - A 2 dimensional histogram G & R match
