@@ -38,9 +38,12 @@ int main(int argc, char *argv[]) {
         num2Show = atoi(argv[4]);
     }
 
+    // print descriptions
+    process::printModeDescriptions();
+
     // get the source image
     source = cv::imread(argv[1]);
-    printf("Processing source %s\n", argv[1]);
+    printf("\nProcessing source %s\n", argv[1]);
     if (source.data == NULL) {
         printf("Unable to read query image %s\n", argv[1]);
         exit(-1);
@@ -49,7 +52,7 @@ int main(int argc, char *argv[]) {
     // get the directory path & load images
     strcpy(dirname, argv[2]);
     process::loadImages(images, dirname);
-    cout << "image numbers: " << images.size() << "\n";
+    cout << "number of images: " << images.size() << "\n\n";
 
     // assign feature mode by input
     feature = atoi(argv[3]);
@@ -64,7 +67,22 @@ int main(int argc, char *argv[]) {
         MODE = MULTI_HISTOGRAM;
         break;
     case 3:
-        MODE = TEXTURE_COLOR;
+        MODE = SOBEL_COLOR_RGB;
+        break;
+    case 4:
+        MODE = CUSTOM;
+        break;
+    case 5:
+        MODE = RG_HISTOGRAM;
+        break;
+    case 6:
+        MODE = SOBEL_CHROMA_RG;
+        break;
+    case 7:
+        MODE = SHAPE;
+        break;
+    case 8:
+        MODE = GRADIENT_COLOR_HS;
         break;
     }
 
@@ -80,10 +98,12 @@ int main(int argc, char *argv[]) {
     if (res.size() <= num2Show)
         num2Show = res.size();
     res.resize(num2Show);
-    cout << "show sorted res " << res.size() << "\n";
+    cout << "show sorted results: " << res.size() << "\n";
 
     // display results
-    process::displayResults(res);
+    // process::displayResults(res);
+
+    process::displayResultsInOneWindow(res);
 
     // NOTE: must add waitKey, or the program will terminate, without showing the result images
     waitKey(0);
